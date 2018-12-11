@@ -1,0 +1,84 @@
+# -*- coding: utf-8 -*-
+
+# coding=utf-8
+def loadDataSet():
+    return  [[1, 3, 4], [2, 3, 5], [1, 2, 3, 5], [2, 5,3], [2, 5,4], [2, 5,4],[1, 2, 3, 5], [2, 5,3], [2, 5,4], [2, 5,4], [2, 5,4], [2, 5,4],[1, 3, 4]]
+def getDegree(tur1,tur2):
+    degree = len(tur1)
+    degree1 = 0
+    for i in tur1:
+        if  i in tur2:
+            degree1+=1
+    if degree1 == degree:
+        return True
+    else:
+        return False
+
+def createC1(dataSet):  # 构建所有候选项集的集合
+    C1 = []
+    for transaction in dataSet:
+        for item in transaction:
+            if not [item] in C1:
+                C1.append([item])    # C1添加的是列表，对于每一项进行添加，{1},{3},{4},{2},{5}
+    return C1                       # 使用frozenset，被“冰冻”的集合，为后续建立字典key-value使用。
+
+
+def scanD(D, Ck, minConfidence):    # 由候选项集生成符合最小支持度的项集L。参数分别为数据集、候选项集列表，最小支持度
+    ssCnt = {}
+    ssChild = {}
+    for tid in D:                # 对于数据集里的每一条记录
+        for can in Ck:
+            if getDegree(can,tid):
+                if not tuple(can) in ssCnt.keys():  # ssCnt[can] = ssCnt.get(can,0)+1一句可破，没有的时候为0,加上1,有的时候用get取出，加1
+                    ssCnt[tuple(can)] = 1
+                else:
+                    ssCnt[tuple(can)] += 1
+    numItems = len(D)
+    retList = []
+    supportData = {}
+    for key in ssCnt:
+        support = ssCnt[key] / numItems  # 除以总的记录条数，即为其支持度
+        if support >= minConfidence:
+            retList.insert(0, key)       # 超过最小支持度的项集，将其记录下来。
+        supportData[key] = support
+    return retList, supportData
+
+
+def aprioriGen(Lk, k):  # 创建符合置信度的项集Ck,
+    retList = []
+    dic = {}
+    lenLk = len(Lk)
+    for i in range(lenLk):
+        for j in range(i + 1,lenLk):  # k=3时，[:k-2]即取[0],对{0,1},{0,2},{1,2}这三个项集来说，L1=0，L2=0，将其合并得{0,1,2}，当L1=0,L2=1不添加，
+            a = list(Lk[i])
+            b = list(Lk[j])
+            a.extend(b)
+            a = set(a)
+            if tuple(a) not in dic.keys():
+                 dic[tuple(a)] = 1
+                 if len(a)<=k:
+                    retList.append(list(a))
+    return retList
+
+
+def apriori(dataSet, minConfidence=0.5):
+    C1 = createC1(dataSet)
+    D = dataSet
+    L1, supportData = scanD(D, C1, minConfidence)
+    L = [L1]  # L将包含满足最小支持度，即经过筛选的所有频繁n项集，这里添加频繁1项集
+    k = 2
+    while (len(L[k - 2]) > 0):  # k=2开始，由频繁1项集生成频繁2项集，直到下一个打的项集为空
+        Ck = aprioriGen(L[k - 2], k)
+        Lk, supK = scanD(D, Ck, minConfidence)
+        supportData.update(supK)  # supportData为字典，存放每个项集的支持度，并以更新的方式加入新的supK
+        L.append(Lk)
+        k += 1
+    return L[:-1], supportData
+
+
+dataSet = loadDataSet()
+C1 = createC1(dataSet)
+L, suppData = apriori(dataSet, minConfidence=0.5)
+for l in range(len(L)):
+    print("频繁",l,"项集：", L[l])
+print("频繁项集支持度分布：",suppData)
